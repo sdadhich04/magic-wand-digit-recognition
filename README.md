@@ -2,7 +2,7 @@
 
 **EE 446: Tiny Machine Learning for Ultra Low-Power Edge Computing | University of Washington, Spring 2026**
 
-Recognizing air-drawn digits (0–9) from IMU motion traces, fine-tuned on custom collected data and deployed on an Arduino Nano 33 BLE Sense. Also includes a pre-built transport mode classification firmware from Edge Impulse.
+Recognizing air-drawn digits (0–9) from IMU motion traces, fine-tuned on custom collected data and deployed on an Arduino Nano 33 BLE Sense.
 
 ---
 
@@ -28,18 +28,19 @@ models/
   quantized_model.tfl                              ← Int8 quantized baseline model (16 KB)
   finetuned_quantized_model.tfl                    ← Int8 fine-tuned model (16 KB)
   saved_model.keras                                ← Keras model (168 KB)
-  magic_wand_model_data.cc                         ← Baseline model as C array for Arduino (95 KB)
-  magic_wand_finetuned_model_data.cc               ← Fine-tuned model as C array (96 KB)
+  magic_wand_model_data.cc                         ← Baseline model as C array for Arduino (94 KB)
+  magic_wand_finetuned_model_data.cc               ← Fine-tuned model as C array (95 KB)
 arduino/
   magic_wand_capture/                              ← Sketch for capturing raw IMU data via Serial
-  magic_wand_lab7/                                 ← Main sketch: loads baseline model, runs inference
+  magic_wand_lab7/                                 ← Main sketch: loads the baseline model, runs inference
   magic_wand_baseline_int8/                        ← Baseline int8 model sketch
   magic_wand_fine_tuned_int8/                      ← Fine-tuned int8 model sketch (best accuracy)
 screenshots/
   pre_fine_tuning/                                 ← Model performance before fine-tuning
   post_fine_tuning/                                ← Model performance after fine-tuning
-transport/                                         ← Pre-built Edge Impulse transport mode firmware
 ```
+
+All three `arduino/magic_wand_*` sketches load their model as a compiled C array (`magic_wand_model_data.cpp`) sitting alongside the `.ino`, matching the model each folder's name promises — `magic_wand_baseline_int8/` and `magic_wand_lab7/` both carry the true baseline weights (16,032-byte model), and `magic_wand_fine_tuned_int8/` carries the fine-tuned weights (16,272-byte model).
 
 ---
 
@@ -63,35 +64,26 @@ The notebook loads `data/magic_wand_digit_data/` (baseline training data), train
 
 **To run inference:**
 1. Open `arduino/magic_wand_fine_tuned_int8/` in Arduino IDE (best accuracy)
-   — or `arduino/magic_wand_lab7/` for the float baseline
+   — or `arduino/magic_wand_baseline_int8/` / `arduino/magic_wand_lab7/` for the untuned baseline
 2. Upload to Nano 33 BLE Sense, open Serial Monitor at 9600 baud
 3. Draw a digit in the air — predicted class prints after each gesture
 
 **Arduino library required:** `TensorFlowLite` (install via Arduino Library Manager)
 
-### Flash transport classification firmware
-
-Pre-built Edge Impulse firmware in `transport/` — classifies transport modes (walking, running, cycling, etc.):
-
-```bash
-# Windows
-transport\flash_windows.bat
-
-# Mac
-transport/flash_mac.command
-
-# Linux
-bash transport/flash_linux.sh
-```
-
 ---
 
 ## Hardware
 
-- **Arduino Nano 33 BLE Sense** (Nordic nRF52840, 256 KB flash, 64 KB RAM, onboard IMU)
+- **Arduino Nano 33 BLE Sense** (Nordic nRF52840, 1 MB flash, 256 KB RAM, onboard IMU)
 
 ---
 
 ## Authors
 
 Sparsh Dadhich — University of Washington, ECE / Neuroscience
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE). This covers the author's own code, notebooks, and documentation in this repo. Bundled TensorFlow Lite Micro example source under `arduino/magic_wand_*/LICENSE` retains its original Apache 2.0 license.
