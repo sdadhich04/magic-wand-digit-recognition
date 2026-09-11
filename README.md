@@ -1,89 +1,37 @@
-# TinyML Magic Wand Digit Recognition — Arduino Nano 33 BLE Sense
+# Magic Wand Digit Recognition
 
-**EE 446: Tiny Machine Learning for Ultra Low-Power Edge Computing | University of Washington, Spring 2026**
+EE 446 lab work for recognizing air-drawn digits on an Arduino Nano 33 BLE Sense. The Arduino sketches collect IMU motion, derive a stroke, rasterize it to a 32 x 32 x 3 int8 input, and run a TensorFlow Lite Micro classifier for labels `0` through `9`.
 
-Recognizing air-drawn digits (0–9) from IMU motion traces, fine-tuned on custom collected data and deployed on an Arduino Nano 33 BLE Sense.
+## Hardware and tools
 
----
+- Arduino Nano 33 BLE Sense
+- On-board IMU, accessed through `Arduino_BMI270_BMM150`
+- Bluetooth Low Energy, accessed through `ArduinoBLE`
+- Arduino IDE and the `TensorFlowLite` Arduino library
+- Python/Jupyter notebook workflow using TensorFlow/Keras, NumPy, Pillow, Matplotlib, scikit-learn, and pandas
 
-## What it does
+## Model
 
-The system captures IMU traces of digits drawn in the air with the board and classifies them as one of 10 digits (0–9). A baseline model is fine-tuned on newly collected data to improve accuracy on the user's personal drawing style.
+The notebook defines a CNN with a rescaling layer, three ReLU convolution layers (8, 16, and 32 filters; 3 x 3 kernels; stride 2), flattening, and a 10-unit softmax output. The deployed sketches use a 30 KiB tensor arena and expect a `1 x 32 x 32 x 3` int8 input and 10 int8 outputs.
 
----
+- Baseline int8 model: [`models/quantized_model.tfl`](models/quantized_model.tfl), 16,032 bytes.
+- Fine-tuned int8 model: [`models/finetuned_quantized_model.tfl`](models/finetuned_quantized_model.tfl), 16,272 bytes.
+- The corresponding C arrays are included with the baseline and fine-tuned Arduino sketch folders.
 
-## Repository contents
+## Run on the board
 
-```
-EE446_TinyML_Lab7_(Magic_Dataset_Training).ipynb   ← Full pipeline: load data → train → quantize → fine-tune
-TinyML-Lab#7.pdf                                   ← Lab instructions
-Lab-7-Data-Collection-Instruction.pdf              ← How to collect your own IMU traces
-model.png                                          ← Model architecture diagram
-wanddata.json                                      ← Collected wand trace data (212 KB)
-data/
-  magic_wand_digit_data/                           ← JSON IMU recordings for digits 0–9
-  finetune/                                        ← Augmented PNG traces for fine-tuning (per-person)
-models/
-  float_model.tfl                                  ← Float32 TFLite model (47 KB)
-  quantized_model.tfl                              ← Int8 quantized baseline model (16 KB)
-  finetuned_quantized_model.tfl                    ← Int8 fine-tuned model (16 KB)
-  saved_model.keras                                ← Keras model (168 KB)
-  magic_wand_model_data.cc                         ← Baseline model as C array for Arduino (94 KB)
-  magic_wand_finetuned_model_data.cc               ← Fine-tuned model as C array (95 KB)
-arduino/
-  magic_wand_capture/                              ← Sketch for capturing raw IMU data via Serial
-  magic_wand_lab7/                                 ← Main sketch: loads the baseline model, runs inference
-  magic_wand_baseline_int8/                        ← Baseline int8 model sketch
-  magic_wand_fine_tuned_int8/                      ← Fine-tuned int8 model sketch (best accuracy)
-screenshots/
-  pre_fine_tuning/                                 ← Model performance before fine-tuning
-  post_fine_tuning/                                ← Model performance after fine-tuning
-```
+1. In Arduino IDE, install the libraries named above and connect the board.
+2. Open either [`arduino/magic_wand_baseline_int8/magic_wand_baseline_int8.ino`](arduino/magic_wand_baseline_int8/magic_wand_baseline_int8.ino) or [`arduino/magic_wand_fine_tuned_int8/magic_wand_fine_tuned_int8.ino`](arduino/magic_wand_fine_tuned_int8/magic_wand_fine_tuned_int8.ino), then upload it. Each folder includes its model array and helper sources.
+3. Open the Serial Monitor at 9600 baud. After a completed gesture, the sketch prints the rasterized stroke and its highest-scoring digit label.
 
-All three `arduino/magic_wand_*` sketches load their model as a compiled C array (`magic_wand_model_data.cpp`) sitting alongside the `.ino`, matching the model each folder's name promises — `magic_wand_baseline_int8/` and `magic_wand_lab7/` both carry the true baseline weights (16,032-byte model), and `magic_wand_fine_tuned_int8/` carries the fine-tuned weights (16,272-byte model).
+For BLE capture, upload [`arduino/magic_wand_capture/magic_wand_capture.ino`](arduino/magic_wand_capture/magic_wand_capture.ino). It exposes the stroke data over BLE; its source comments direct the user to the Arduino BLE Sense dashboard in Chrome.
 
----
+## Notebook workflow
 
-## Quick start
+Open [`EE446_TinyML_Lab7_(Magic_Dataset_Training).ipynb`](EE446_TinyML_Lab7_(Magic_Dataset_Training).ipynb) in Jupyter to inspect or run the training, int8 conversion, and fine-tuning cells.
 
-### Run the notebook (train / fine-tune)
+The notebook is not runnable from this checkout unchanged: its early cells require `magic_wand_digit_data.zip` at the notebook root, while this repository tracks the extracted JSON files under `data/magic_wand_digit_data/`. It also generates and replaces root-level `train`, `validation`, `test`, `finetune`, and `checkpoints` directories. Provide the expected archive or adjust the data path before running those cells.
 
-```bash
-pip install numpy tensorflow matplotlib scikit-learn
-jupyter notebook "EE446_TinyML_Lab7_(Magic Dataset Training).ipynb"
-```
+## Credits
 
-The notebook loads `data/magic_wand_digit_data/` (baseline training data), trains and quantizes a model, then fine-tunes on `data/finetune/` (custom collected traces). Outputs are saved to `models/`.
-
-### Flash the Arduino sketch
-
-**To collect your own training data:**
-1. Open `arduino/magic_wand_capture/magic_wand_capture.ino` in Arduino IDE
-2. Upload to Nano 33 BLE Sense, open Serial Monitor at 9600 baud
-3. Draw digits in the air — traces are printed as JSON for export
-
-**To run inference:**
-1. Open `arduino/magic_wand_fine_tuned_int8/` in Arduino IDE (best accuracy)
-   — or `arduino/magic_wand_baseline_int8/` / `arduino/magic_wand_lab7/` for the untuned baseline
-2. Upload to Nano 33 BLE Sense, open Serial Monitor at 9600 baud
-3. Draw a digit in the air — predicted class prints after each gesture
-
-**Arduino library required:** `TensorFlowLite` (install via Arduino Library Manager)
-
----
-
-## Hardware
-
-- **Arduino Nano 33 BLE Sense** (Nordic nRF52840, 1 MB flash, 256 KB RAM, onboard IMU)
-
----
-
-## Authors
-
-Sparsh Dadhich — University of Washington, ECE / Neuroscience
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE). This covers the author's own code, notebooks, and documentation in this repo. Bundled TensorFlow Lite Micro example source under `arduino/magic_wand_*/LICENSE` retains its original Apache 2.0 license.
+Repository copyright is Sparsh Dadhich, with an MIT license in [`LICENSE`](LICENSE). The Arduino Magic Wand helper source retains TensorFlow Authors copyright and Apache-2.0 notices; the capture sketch credits D. Pajak for the web dashboard and Sandeep Mistry for the sketch basis.
